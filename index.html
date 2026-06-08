@@ -1051,6 +1051,30 @@
             .star { position: absolute; width: 2px; height: 2px; background: white; transform: translate(-50%, -50%); }
             .scroll-proxy { height: 10000vh; position: absolute; width: 100%; z-index: -1; }
 
+            /* NEW: Mobile Nav Controls and Hint */
+            .scroll-hint {
+                position: fixed; bottom: 6rem; left: 50%; transform: translateX(-50%);
+                font-family: var(--font-code); font-size: 0.6rem; color: rgba(255, 255, 255, 0.5);
+                z-index: 100; pointer-events: none; text-align: center; letter-spacing: 0.2em; width: 100%;
+            }
+            .mobile-nav-controls {
+                position: fixed; right: 1.5rem; bottom: 50%; transform: translateY(50%);
+                display: flex; flex-direction: column; gap: 1rem; z-index: 1000;
+            }
+            .mobile-nav-controls button {
+                background: rgba(10, 10, 10, 0.6); border: 1px solid rgba(0, 243, 255, 0.3);
+                color: var(--accent-2); width: 50px; height: 50px; border-radius: 50%;
+                font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+                backdrop-filter: blur(5px); cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(0,243,255,0.1);
+            }
+            .mobile-nav-controls button:active { 
+                background: var(--accent); color: white; border-color: white; transform: scale(0.9);
+            }
+            @media (min-width: 769px) { 
+                .mobile-nav-controls { display: none; } 
+                .scroll-hint { bottom: 4rem; }
+            }
+
             /* Mobile Adjustments for HER section */
             @media (max-width: 768px) {
                 .hud { inset: 1rem; }
@@ -1089,6 +1113,13 @@
         </div>
         
         <div class="machhar-mark">© machhar</div>
+
+        <!-- NEW: Scroll Hint and Mobile Buttons -->
+        <div class="scroll-hint">[ SCROLL OR USE ARROWS TO EXPLORE ]</div>
+        <div class="mobile-nav-controls">
+            <button id="btn-up">▲</button>
+            <button id="btn-down">▼</button>
+        </div>
 
         <div class="viewport" id="viewport">
             <div class="world" id="world"></div>
@@ -1218,12 +1249,21 @@
             const isMobileScroll = window.innerWidth < 768;
             const lenis = new Lenis({
                 smooth: true, 
-                lerp: isMobileScroll ? 0.1 : 0.08, 
+                lerp: isMobileScroll ? 0.05 : 0.08, // Slower lerp on mobile
                 direction: 'vertical', 
                 gestureDirection: 'vertical',
                 smoothTouch: true, 
-                touchMultiplier: isMobileScroll ? 0.1 : 1, // Fix: Dynamically reduced multiplier on mobile to fix the hyper-fast crashing scroll
+                touchMultiplier: isMobileScroll ? 0.15 : 1, // Drastically reduced multiplier for mobile to fix fast lag
                 wheelMultiplier: 1
+            });
+
+            // NEW: Button Navigation Logic
+            const scrollStep = CONFIG.zGap / CONFIG.camSpeed;
+            document.getElementById('btn-down').addEventListener('click', () => {
+                lenis.scrollTo(state.scroll + scrollStep, { duration: 1.2, lock: false });
+            });
+            document.getElementById('btn-up').addEventListener('click', () => {
+                lenis.scrollTo(Math.max(0, state.scroll - scrollStep), { duration: 1.2, lock: false });
             });
 
             lenis.on('scroll', ({ scroll, velocity }) => {
@@ -1247,12 +1287,18 @@
                 feedbackVel.innerText = Math.abs(state.velocity).toFixed(2);
                 document.getElementById('coord').innerText = `${state.scroll.toFixed(0)}`;
 
-                const tiltX = state.mouseY * 5 - state.velocity * 0.5;
+                // NEW: Visual Velocity Clamping for Mobile to prevent 3D glitching/lag
+                let displayVel = state.velocity;
+                if (isMobileScroll) {
+                    displayVel = Math.max(-15, Math.min(15, state.velocity)); 
+                }
+
+                const tiltX = state.mouseY * 5 - displayVel * 0.5;
                 const tiltY = state.mouseX * 5;
                 world.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
 
                 const baseFov = 1000;
-                const fov = baseFov - Math.min(Math.abs(state.velocity) * 10, 600);
+                const fov = baseFov - Math.min(Math.abs(displayVel) * 10, 600);
                 viewport.style.perspective = `${fov}px`;
                 const cameraZ = state.scroll * CONFIG.camSpeed;
 
@@ -1402,7 +1448,7 @@ document.getElementById("main-wrapper").addEventListener("mouseleave", () => {
 
         // Fix: Robust Time Aware Greeting logic that covers all 24 hours properly
         const currentHour = new Date().getHours();
-        let greeting = "good morning."; // Default fallback
+        let greeting = "good morning.";
 
         if (currentHour >= 5 && currentHour < 12) {
             greeting = "good morning.";
@@ -1447,38 +1493,37 @@ document.getElementById("main-wrapper").addEventListener("mouseleave", () => {
             heroEl.classList.add('bg-mode');
             heroEl.style.pointerEvents = "auto";
 
-heroEl.style.pointerEvents = "auto";
+            let secretTimer = null;
 
-let secretTimer = null;
+            heroEl.addEventListener("mousedown", () => {
+                secretTimer = setTimeout(() => {
+                    document.getElementById("hidden-menu").classList.add("active");
+                }, 3000); // Hold for 3 seconds
+            });
 
-heroEl.addEventListener("mousedown", () => {
-    secretTimer = setTimeout(() => {
-        document.getElementById("hidden-menu").classList.add("active");
-    }, 3000); // Hold for 3 seconds
-});
+            heroEl.addEventListener("mouseup", () => {
+                clearTimeout(secretTimer);
+            });
 
-heroEl.addEventListener("mouseup", () => {
-    clearTimeout(secretTimer);
-});
+            heroEl.addEventListener("mouseleave", () => {
+                clearTimeout(secretTimer);
+            });
 
-heroEl.addEventListener("mouseleave", () => {
-    clearTimeout(secretTimer);
-});
+            // Mobile
+            heroEl.addEventListener("touchstart", () => {
+                secretTimer = setTimeout(() => {
+                    document.getElementById("hidden-menu").classList.add("active");
+                }, 3000);
+            });
 
-// Mobile
-heroEl.addEventListener("touchstart", () => {
-    secretTimer = setTimeout(() => {
-        document.getElementById("hidden-menu").classList.add("active");
-    }, 3000);
-});
+            heroEl.addEventListener("touchend", () => {
+                clearTimeout(secretTimer);
+            });
 
-heroEl.addEventListener("touchend", () => {
-    clearTimeout(secretTimer);
-});
+            heroEl.addEventListener("touchmove", () => {
+                clearTimeout(secretTimer);
+            }); 
 
-heroEl.addEventListener("touchmove", () => {
-    clearTimeout(secretTimer);
-}); 
             heroEl.style.opacity = '1';
 
             navContainer.style.display = 'flex';
