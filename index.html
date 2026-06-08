@@ -1215,9 +1215,15 @@
             }
             init();
 
+            const isMobileScroll = window.innerWidth < 768;
             const lenis = new Lenis({
-                smooth: true, lerp: 0.08, direction: 'vertical', gestureDirection: 'vertical',
-                smoothTouch: true, touchMultiplier: 2
+                smooth: true, 
+                lerp: isMobileScroll ? 0.1 : 0.08, 
+                direction: 'vertical', 
+                gestureDirection: 'vertical',
+                smoothTouch: true, 
+                touchMultiplier: isMobileScroll ? 0.5 : 1, // Fix: Dynamically reduced multiplier on mobile to fix the hyper-fast crashing scroll
+                wheelMultiplier: 1
             });
 
             lenis.on('scroll', ({ scroll, velocity }) => {
@@ -1394,12 +1400,21 @@ document.getElementById("main-wrapper").addEventListener("mouseleave", () => {
 
         window.onload = runLoader;
 
-        // Time Aware Greeting
+        // Fix: Robust Time Aware Greeting logic that covers all 24 hours properly
         const currentHour = new Date().getHours();
-        let greeting = "good morning.";
-        if (currentHour === 2 || currentHour === 3) greeting = "bad sleep schedule?";
-        else if (currentHour >= 20 || currentHour <= 4) greeting = "still awake?";
-        else if (currentHour >= 12 && currentHour < 18) greeting = "good afternoon.";
+        let greeting = "good morning."; // Default fallback
+
+        if (currentHour >= 5 && currentHour < 12) {
+            greeting = "good morning.";
+        } else if (currentHour >= 12 && currentHour < 18) {
+            greeting = "good afternoon.";
+        } else if (currentHour >= 18 && currentHour < 22) {
+            greeting = "good evening.";
+        } else if (currentHour >= 22 || currentHour < 2) {
+            greeting = "still awake?"; // 10 PM through 1:59 AM
+        } else if (currentHour >= 2 && currentHour < 5) {
+            greeting = "bad sleep schedule?"; // 2 AM through 4:59 AM
+        }
 
         const heroSequence = [
             { text: greeting, wait: 2500 },
